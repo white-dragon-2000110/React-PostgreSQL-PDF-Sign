@@ -99,105 +99,158 @@ function resolvePosition(positionRaw) {
 }
 
 async function stampSignerName(inputPath, outputPath, signerName, options = {}) {
-  try {
-    const bytes = fs.readFileSync(inputPath);
-    const pdf = await PDFDocument.load(bytes);
-    const pages = pdf.getPages();
-    const font = await pdf.embedFont(StandardFonts.HelveticaBold);
-    const text = `Signed by: ${signerName}`;
-    const textSize = Number(options.textSize || 16);
-    const marginX = Number(options.marginX || 16);
-    const marginY = Number(options.marginY || 16);
-    const position = resolvePosition(options.position || process.env.SIGN_LABEL_POSITION);
+	try {
+		const bytes = fs.readFileSync(inputPath);
+		const pdf = await PDFDocument.load(bytes);
+		const pages = pdf.getPages();
+		const font = await pdf.embedFont(StandardFonts.HelveticaBold);
 
-    for (const page of pages) {
-      const { width, height } = page.getSize();
-      let x = marginX;
-      let y = marginY;
-      const textWidth = font.widthOfTextAtSize(text, textSize);
+		const textSize = Number(options.textSize || 14);
+		const lineGap = Number(options.lineGap || 6);
+		const marginX = Number(options.marginX || 16);
+		const marginY = Number(options.marginY || 16);
+		const position = resolvePosition(options.position || process.env.SIGN_LABEL_POSITION);
+		const paddingX = Number(options.paddingX || 6);
+		const paddingY = Number(options.paddingY || 6);
 
-      if (position.startsWith('top')) {
-        y = height - textSize - marginY;
-      }
-      if (position.endsWith('right')) {
-        x = Math.max(marginX, width - textWidth - marginX);
-      }
+		const dateTimeText = options.dateTimeText || new Date().toISOString();
+		const certificateText = options.certificateText || 'N/A';
+		const statusText = options.statusText || 'Prepared';
 
-      page.drawText(text, {
-        x,
-        y: y + 2,
-        size: textSize,
-        font,
-        color: rgb(1, 0, 0),
-      });
-    }
+		const lines = [
+			`Signed by: ${String(signerName || '').trim()}`,
+			`Date/Time: ${dateTimeText}`,
+			`Certificate: ${certificateText}`,
+			`Status: ${statusText}`,
+		];
 
-    const stamped = await pdf.save();
-    fs.writeFileSync(outputPath, stamped);
-    return true;
-  } catch (e) {
-    console.error('Failed to stamp signer name', e);
-    return false;
-  }
+		const longestWidth = Math.max(
+			...lines.map((l) => font.widthOfTextAtSize(l, textSize))
+		);
+
+		for (const page of pages) {
+			const { width, height } = page.getSize();
+
+			let startX = marginX;
+			let startY = position.startsWith('top') ? (height - textSize - marginY) : marginY;
+			if (position.endsWith('right')) {
+				startX = Math.max(marginX, width - longestWidth - marginX);
+			}
+
+			const blockWidth = longestWidth + paddingX * 2;
+			const blockHeight = lines.length * textSize + (lines.length - 1) * lineGap + paddingY * 2;
+			const rectX = startX - paddingX;
+			const rectY = position.startsWith('top')
+				? startY - (lines.length - 1) * (textSize + lineGap) - paddingY
+				: startY - paddingY;
+
+			// Background box for readability
+			page.drawRectangle({
+				x: rectX,
+				y: rectY,
+				width: blockWidth,
+				height: blockHeight,
+				color: rgb(1, 1, 1),
+				opacity: 0.85,
+			});
+
+			// Foreground text (all in red as requested)
+			lines.forEach((text, idx) => {
+				const y = position.startsWith('top')
+					? startY - idx * (textSize + lineGap)
+					: startY + idx * (textSize + lineGap);
+				page.drawText(text, { x: startX, y: y + 2, size: textSize, font, color: rgb(1, 0, 0) });
+			});
+		}
+
+		const stamped = await pdf.save();
+		fs.writeFileSync(outputPath, stamped);
+		return true;
+	} catch (e) {
+		console.error('Failed to stamp signer name', e);
+		return false;
+	}
 }
 
 async function stampMultipleSignerNames(inputPath, outputPath, signerNames, options = {}) {
-  try {
-    const names = (Array.isArray(signerNames) ? signerNames : [])
-      .map((n) => String(n || '').trim())
-      .filter(Boolean);
-    if (names.length === 0) {
-      return await stampSignerName(inputPath, outputPath, '', options);
-    }
+	try {
+		const names = (Array.isArray(signerNames) ? signerNames : [])
+			.map((n) => String(n || '').trim())
+			.filter(Boolean);
+		if (names.length === 0) {
+			return await stampSignerName(inputPath, outputPath, '', options);
+		}
 
-    const bytes = fs.readFileSync(inputPath);
-    const pdf = await PDFDocument.load(bytes);
-    const pages = pdf.getPages();
-    const font = await pdf.embedFont(StandardFonts.HelveticaBold);
-    const textSize = Number(options.textSize || 16);
-    const lineGap = Number(options.lineGap || 6);
-    const marginX = Number(options.marginX || 16);
-    const marginY = Number(options.marginY || 16);
-    const position = resolvePosition(options.position || process.env.SIGN_LABEL_POSITION);
+		const bytes = fs.readFileSync(inputPath);
+		const pdf = await PDFDocument.load(bytes);
+		const pages = pdf.getPages();
+		const font = await pdf.embedFont(StandardFonts.HelveticaBold);
+		const textSize = Number(options.textSize || 14);
+		const lineGap = Number(options.lineGap || 6);
+		const marginX = Number(options.marginX || 16);
+		const marginY = Number(options.marginY || 16);
+		const position = resolvePosition(options.position || process.env.SIGN_LABEL_POSITION);
+		const paddingX = Number(options.paddingX || 6);
+		const paddingY = Number(options.paddingY || 6);
 
-    for (const page of pages) {
-      const { width, height } = page.getSize();
+		const dateTimeText = options.dateTimeText || new Date().toISOString();
+		const certificateText = options.certificateText || 'N/A';
+		const statusText = options.statusText || 'Prepared';
 
-      let startY;
-      if (position.startsWith('top')) {
-        // stack downward from top margin
-        startY = height - textSize - marginY;
-      } else {
-        // stack upward from bottom margin
-        startY = marginY;
-      }
+		const headerLines = [
+			`Date/Time: ${dateTimeText}`,
+			`Certificate: ${certificateText}`,
+			`Status: ${statusText}`,
+		];
+		const nameLines = names.map((n) => `Signed by: ${n}`);
+		const allLines = [...headerLines, ...nameLines];
 
-      names.forEach((name, idx) => {
-        const text = `Signed by: ${name}`;
-        const textWidth = font.widthOfTextAtSize(text, textSize);
-        let x = position.endsWith('right') ? Math.max(marginX, width - textWidth - marginX) : marginX;
-        let y = position.startsWith('top') ? startY - idx * (textSize + lineGap) : startY + idx * (textSize + lineGap);
+		const longestWidth = Math.max(
+			...allLines.map((l) => font.widthOfTextAtSize(l, textSize))
+		);
 
-        // Limit label block to lower 40% or upper 40% of page to avoid center/title
-        const minY = marginY;
-        const maxY = height * 0.6;
-        if (!position.startsWith('top')) {
-          if (y > height * 0.4) y = height * 0.4; // cap upward growth
-        } else {
-          if (y < height * 0.6 - textSize) y = height * 0.6 - textSize; // cap downward growth
-        }
+		for (const page of pages) {
+			const { width, height } = page.getSize();
 
-        page.drawText(text, { x, y: y + 2, size: textSize, font, color: rgb(1, 0, 0) });
-      });
-    }
+			let startX = marginX;
+			let startY = position.startsWith('top') ? (height - textSize - marginY) : marginY;
+			if (position.endsWith('right')) {
+				startX = Math.max(marginX, width - longestWidth - marginX);
+			}
 
-    const stamped = await pdf.save();
-    fs.writeFileSync(outputPath, stamped);
-    return true;
-  } catch (e) {
-    console.error('Failed to stamp multiple signer names', e);
-    return false;
-  }
+			const blockWidth = longestWidth + paddingX * 2;
+			const blockHeight = allLines.length * textSize + (allLines.length - 1) * lineGap + paddingY * 2;
+			const rectX = startX - paddingX;
+			const rectY = position.startsWith('top')
+				? startY - (allLines.length - 1) * (textSize + lineGap) - paddingY
+				: startY - paddingY;
+
+			// Background box for readability
+			page.drawRectangle({
+				x: rectX,
+				y: rectY,
+				width: blockWidth,
+				height: blockHeight,
+				color: rgb(1, 1, 1),
+				opacity: 0.85,
+			});
+
+			// Foreground text (all in red as requested)
+			allLines.forEach((text, idx) => {
+				const y = position.startsWith('top')
+					? startY - idx * (textSize + lineGap)
+					: startY + idx * (textSize + lineGap);
+				page.drawText(text, { x: startX, y: y + 2, size: textSize, font, color: rgb(1, 0, 0) });
+			});
+		}
+
+		const stamped = await pdf.save();
+		fs.writeFileSync(outputPath, stamped);
+		return true;
+	} catch (e) {
+		console.error('Failed to stamp multiple signer names', e);
+		return false;
+	}
 }
 
 // sign-direct - no server storage, no DB (cert/key placeholders)
@@ -219,6 +272,7 @@ router.post('/sign-direct', memoryUpload.single('document'), async (req, res) =>
     const position = req.body && req.body.position;
     const marginX = req.body && req.body.marginX;
     const marginY = req.body && req.body.marginY;
+    const textSize = req.body && req.body.textSize;
 
     const templateRaw = process.env.SIGN_COMMAND_TEMPLATE || 'copy';
     const template = String(templateRaw);
@@ -238,7 +292,19 @@ router.post('/sign-direct', memoryUpload.single('document'), async (req, res) =>
       stream.pipe(res);
     };
 
-    const preparedOk = await stampSignerName(tempInputPath, tempPreparedPath, signerName || '', { position, marginX, marginY });
+    // Build stamp metadata (displayed on PDF label)
+    const now = new Date();
+    const dateTimeText = now.toISOString().replace('T', ' ').replace('Z', ' UTC');
+    const certEnv = process.env.CERT_PATH || '';
+    const certificateText = certEnv ? path.basename(certEnv) : 'N/A';
+    const statusText = 'Pending signature';
+
+    const preparedOk = await stampSignerName(
+      tempInputPath,
+      tempPreparedPath,
+      signerName || '',
+      { position, marginX, marginY, textSize, dateTimeText, certificateText, statusText }
+    );
     const inputForSigning = preparedOk ? tempPreparedPath : tempInputPath;
 
     if (bypass) {
@@ -298,6 +364,7 @@ router.post('/sign-direct-pfx', memoryUpload.fields([
     const originalName = doc.originalname || 'document.pdf';
     const parsed = path.parse(originalName);
     const tempInputPath = path.join(os.tmpdir(), `${Date.now()}__${parsed.name}${parsed.ext || '.pdf'}`);
+    const tempPreparedPath = path.join(os.tmpdir(), `${Date.now()}__${parsed.name}.prepared${parsed.ext || '.pdf'}`);
     const tempOutputPath = path.join(os.tmpdir(), `${Date.now()}__${parsed.name}.signed${parsed.ext || '.pdf'}`);
     const tempPfxPath = path.join(os.tmpdir(), `${Date.now()}__signer.pfx`);
 
@@ -307,12 +374,14 @@ router.post('/sign-direct-pfx', memoryUpload.fields([
     const signerName = (req.body && req.body.signerName) || process.env.DEFAULT_SIGNER_NAME || '';
     const reason = (req.body && req.body.reason) || process.env.DEFAULT_REASON || '';
     const location = (req.body && req.body.location) || process.env.DEFAULT_LOCATION || '';
+    const textSize = (req.body && req.body.textSize);
 
     const templateRaw = process.env.SIGN_PFX_TEMPLATE || 'java -jar /opt/jsignpdf/jSignPdf.jar -ks "{pfx}" -kspass "{pfxPassword}" -visible -reason "{reason}" -location "{location}" -signed "{output}" "{input}"';
     const template = String(templateRaw);
 
     const finalize = () => {
       try { fs.unlinkSync(tempInputPath); } catch {}
+      try { fs.unlinkSync(tempPreparedPath); } catch {}
       try { fs.unlinkSync(tempOutputPath); } catch {}
       try { fs.unlinkSync(tempPfxPath); } catch {}
     };
@@ -325,8 +394,21 @@ router.post('/sign-direct-pfx', memoryUpload.fields([
       stream.pipe(res);
     };
 
+    // Stamp human-readable metadata before signing
+    const now = new Date();
+    const dateTimeText = now.toISOString().replace('T', ' ').replace('Z', ' UTC');
+    const certificateText = pfx.originalname || 'PFX';
+    const statusText = 'Pending signature';
+    const preparedOk = await stampSignerName(
+      tempInputPath,
+      tempPreparedPath,
+      signerName || '',
+      { dateTimeText, certificateText, statusText, textSize }
+    );
+    const inputForSigning = preparedOk ? tempPreparedPath : tempInputPath;
+
     const command = replacePlaceholders(template, [
-      ['{input}', tempInputPath],
+      ['{input}', inputForSigning],
       ['{output}', tempOutputPath],
       ['{pfx}', tempPfxPath],
       ['{pfxPassword}', pfxPassword],
@@ -388,8 +470,21 @@ router.post('/sign-direct-multi', memoryUpload.single('document'), async (req, r
     const position = req.body && req.body.position;
     const marginX = req.body && req.body.marginX;
     const marginY = req.body && req.body.marginY;
+    const textSize = req.body && req.body.textSize;
 
-    const preparedOk = await stampMultipleSignerNames(tempInputPath, tempPreparedPath, signerNames, { position, marginX, marginY });
+    // Build stamp metadata (displayed on PDF label)
+    const now = new Date();
+    const dateTimeText = now.toISOString().replace('T', ' ').replace('Z', ' UTC');
+    const certEnv = process.env.CERT_PATH || '';
+    const certificateText = certEnv ? path.basename(certEnv) : 'N/A';
+    const statusText = 'Pending signature';
+
+    const preparedOk = await stampMultipleSignerNames(
+      tempInputPath,
+      tempPreparedPath,
+      signerNames,
+      { position, marginX, marginY, textSize, dateTimeText, certificateText, statusText }
+    );
     const inputForSigning = preparedOk ? tempPreparedPath : tempInputPath;
 
     const templateRaw = process.env.SIGN_COMMAND_TEMPLATE || 'copy';

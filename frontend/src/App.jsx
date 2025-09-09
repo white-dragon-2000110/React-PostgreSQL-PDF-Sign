@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import './App.css'
 
 function formatBytes(bytes) {
   if (!bytes && bytes !== 0) return ''
@@ -110,6 +109,11 @@ function App() {
       const formData = new FormData()
       formData.append('document', file)
       formData.append('signerName', signerName.trim())
+      // Improve label visibility
+      formData.append('position', 'top-right')
+      formData.append('marginX', '24')
+      formData.append('marginY', '24')
+      formData.append('textSize', '16')
       const res = await fetch('/api/docs/sign-direct', { method: 'POST', body: formData })
       if (!res.ok) throw new Error('Direct sign failed')
       const blob = await res.blob()
@@ -136,10 +140,11 @@ function App() {
       const inputFile = file instanceof File ? file : new File([file], 'input.pdf', { type: 'application/pdf' })
       form.append('document', inputFile)
       form.append('signerNames', JSON.stringify(signerQueue))
-      // Place labels at bottom-left with safe margins
-      form.append('position', 'bottom-left')
-      form.append('marginX', '16')
-      form.append('marginY', '36')
+      // Place labels at top-right for visibility
+      form.append('position', 'top-right')
+      form.append('marginX', '24')
+      form.append('marginY', '24')
+      form.append('textSize', '14')
       const res = await fetch('/api/docs/sign-direct-multi', { method: 'POST', body: form })
       if (!res.ok) throw new Error('Multi-sign failed')
       const blob = await res.blob()
@@ -208,17 +213,16 @@ function App() {
             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-fuchsia-500" />
             <h1 className="text-lg font-semibold tracking-tight">Signature Studio</h1>
           </div>
-          <nav className="text-sm text-white/70">Dark · Responsive</nav>
         </div>
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-10">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <section className="lg:col-span-2">
+        <div className="flex flex-col gap-6">
+          <section>
             <div
               className={[
                 'rounded-2xl border border-white/10 p-6 md:p-8 bg-white/5 backdrop-blur transition-all',
-                isDragging ? 'ring-2 ring-indigo-400/60 scale-[1.01]' : 'hover;border-white/20'
+                isDragging ? 'ring-2 ring-indigo-400/60 scale-[1.01]' : 'hover:border-white/20'
               ].join(' ')}
               onDragOver={onDragOver}
               onDragLeave={onDragLeave}
@@ -270,30 +274,30 @@ function App() {
             </div>
           </section>
 
-          <aside className="space-y-6">
+          <section>
             <div className="rounded-2xl border border-white/10 p-6 bg-white/5 backdrop-blur">
               <h3 className="font-semibold text-lg">Signature details</h3>
               <div className="mt-3 grid gap-3">
-                <div className="flex items-center gap-3">
-                  <label className="w-32 text-sm text-white/70">Signer name</label>
-                  <input value={signerName} onChange={(e) => setSignerName(e.target.value)} className="flex-1 rounded-lg bg-black/30 border border-white/10 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500/50" placeholder="e.g. John Doe" />
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="w-full sm:w-32 text-sm text-white/70">Signer name</label>
+                  <input value={signerName} onChange={(e) => setSignerName(e.target.value)} className="flex-1 min-w-0 rounded-lg bg-black/30 border border-white/10 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500/50" placeholder="e.g. John Doe" />
                   <button
                     onClick={addSigner}
-                    className="px-3 py-2 rounded-lg !bg-indigo-600 hover:!bg-indigo-500"
+                    className="w-full sm:w-auto shrink-0 px-3 py-2 rounded-lg !bg-indigo-600 hover:!bg-indigo-500"
                   >
                     Add
                   </button>
                   <button
                     onClick={signAll}
                     disabled={!canSignAll}
-                    className={`px-4 py-2 rounded-lg transition-colors ${canSignAll ? '!bg-amber-600 hover:!bg-amber-500 active:!bg-amber-700' : '!bg-amber-900/40 text-white/50 cursor-not-allowed'}`}
+                    className={`w-full sm:w-auto shrink-0 px-4 py-2 rounded-lg transition-colors ${canSignAll ? '!bg-amber-600 hover:!bg-amber-500 active:!bg-amber-700' : '!bg-amber-900/40 text-white/50 cursor-not-allowed'}`}
                   >
                     Sign All
                   </button>
                   <button
                     onClick={downloadSigned}
                     disabled={!canDownload}
-                    className={`px-4 py-2 rounded-lg transition-colors ${canDownload ? '!bg-sky-600 hover:!bg-sky-500 active:!bg-sky-700' : '!bg-sky-900/40 text-white/50 cursor-not-allowed'}`}
+                    className={`w-full sm:w-auto shrink-0 px-4 py-2 rounded-lg transition-colors ${canDownload ? '!bg-sky-600 hover:!bg-sky-500 active:!bg-sky-700' : '!bg-sky-900/40 text-white/50 cursor-not-allowed'}`}
                   >
                     Download
                   </button>
@@ -310,7 +314,9 @@ function App() {
                 )}
               </div>
             </div>
+          </section>
 
+          <section>
             <div className="rounded-2xl border border-white/10 p-6 bg-white/5 backdrop-blur">
               <h3 className="font-semibold text-lg">Status</h3>
               <p className="text-white/80 mt-2">{status || 'Idle'}</p>
@@ -334,16 +340,11 @@ function App() {
                 </button>
               </div>
             </div>
-          </aside>
+          </section>
         </div>
       </main>
 
-      <footer className="max-w-5xl mx-auto px-4 py-8 text-sm text-white/60">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
-          <span>© {new Date().getFullYear()} Signature Studio</span>
-          <span className="text-white/50">Built with React + Tailwind</span>
-        </div>
-      </footer>
+      <div className="h-6" />
     </div>
   )
 }
