@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+
+# Logs
+logs/
+*.log
+*.log.*
+vite-dev.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Builds / caches
+dist/
+build/
+.cache/
+.tmp/
+
+# Environment and secrets
+.env
+.env.*
+backend/.env
+backend/*.env
+frontend/.env
+
+# Certificates / keys (do not commit)
+*.pfx
+*.p12
+*.pem
+*.key
+
+# Uploads and generated files
+backend/uploads/
+frontend/public/uploads/
+
+# Database / data
+*.sqlite
+*.db
+data/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Misc
+*.local
+temp/
+tmp/
